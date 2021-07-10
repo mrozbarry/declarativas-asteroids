@@ -1,0 +1,18 @@
+{
+  "name": "asteroids",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Alex Barry <alex.barry@gmail.com>",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "parcel serve src/index.html",
+    "build": "parcel build src/index.html",
+    "deploy": "yarn build && surge dist declarativas-asteroids.surge.sh"
+  },
+  "devDependencies": {
+    "declarativas": "^0.0.1-beta.15",
+    "parcel": "^2.0.0-beta.2",
+    "surge": "^0.23.0"
+  }
+}
