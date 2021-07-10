@@ -5,14 +5,19 @@ export const make = (newVec = {}) => ({
 
 export const zero = make({ x: 0, y: 0 });
 
-export const add = (a, b) => ({
+export const add = (a, b) => make({
   x: a.x + b.x,
   y: a.y + b.y,
 });
 
-export const scale = (a, mul) => ({
+export const scale = (a, mul) => make({
   x: a.x * mul,
   y: a.y * mul,
+});
+
+export const multiply = (a, b) => make({
+  x: a.x * b.x,
+  y: a.y * b.y,
 });
 
 export const wrap = (a, maxX, maxY) => {
@@ -45,3 +50,10 @@ export const dist = (a, b = zero) => {
   });
   return Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
 };
+
+export const average = (a, b) => make({
+  x: (a.x + b.x) / 2,
+  y: (a.y + b.y) / 2,
+});
+
+export const flip = a => make({ x: a.y, y: a.x });

@@ -114,14 +114,14 @@ const app = build({
                 <Asteroid {...asteroid} />
               </RevertableState>
             ))}
-            {state.nextLevelTimeout && (
+            {!state.playerRespawnTimeout && state.nextLevelTimeout && (
               <RevertableState>
                 <Text x={400 + 2 - (Math.random() * 4)} y={300 + 2 - (Math.random() * 4)} size={60} baseline="middle" align="center">ready next level</Text>
               </RevertableState>
             )}
             {state.playerRespawnTimeout && (
               <RevertableState>
-                <Text x={400 + 2 - (Math.random() * 4)} y={300 + 2 - (Math.random() * 4)} size={60} baseline="middle" align="center">wrecked</Text>
+                <Text x={400 + 2 - (Math.random() * 4)} y={300 + 2 - (Math.random() * 4)} size={60} baseline="middle" align="center">{state.lives > 0 ? 'wrecked' : 'game over'}</Text>
               </RevertableState>
             )}
           </PlayArea>

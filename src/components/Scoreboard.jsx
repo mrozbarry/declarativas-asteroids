@@ -12,7 +12,7 @@ import { Ship } from './Ship.jsx';
 import { d2r } from '../lib/math';
 
 export const Scoreboard = ({ points, lives, level, width, ship }) => {
-  const levelFontSize = (54 / 1024) * width;
+  const levelFontSize = (42 / 1024) * width;
   const scoreFontSize = (32 / 1024) * width;
   return (
     <>

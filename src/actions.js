@@ -53,8 +53,8 @@ const makeAsteroid = (size) => {
       y: Math.random() * 600,
     }),
     v: vec.make({
-      x: 200 - (Math.random() * 300),
-      y: 200 - (Math.random() * 300),
+      x: 150 - (Math.random() * 300),
+      y: 150 - (Math.random() * 300),
     }),
     angle: Math.random() * 359,
     angleV: 60 - (Math.random() * 120),
@@ -64,8 +64,6 @@ const makeAsteroid = (size) => {
 };
 
 const splitAsteroid = (collision, asteroid) => {
-  const shotVec = vec.unit(collision.shot.v);
-  const asteroidVec = vec.unit(asteroid.v);
 
   return [
     makeAsteroid(asteroid.size / 2),
@@ -74,12 +72,15 @@ const splitAsteroid = (collision, asteroid) => {
     .map((a, i) => ({
       ...a,
       p: { ...asteroid.p },
-      v: vec.scale(
-        (i === 0
-          ? vec.make({ x: asteroidVec.x * -shotVec.x, y: asteroidVec.y * -shotVec.y })
-          : vec.make({ x: asteroidVec.y * -shotVec.y, y: asteroidVec.x * -shotVec.x })
+      v: vec.clamp(
+        vec.scale(
+          (i === 0
+            ? vec.add(asteroid.v, vec.scale(collision.shot.v, -1))
+            : vec.add(asteroid.v, vec.flip(collision.shot.v), -1)
+          ),
+          1 / 2,
         ),
-        200,
+        150,
       ),
     }));
 };
@@ -123,41 +124,46 @@ const detectShipAsteroidCollision = (ship, asteroids) => {
   return null;
 };
 
-export const advance = (prevState, context2d, delta, dispatch) => {
-  const { ship, ...state } = prevState;
-
-  const moveModifier = ship.slow
-    ? 0.4
-    : 1;
-
-  const direction = shipDirection(ship);
-
-  const canShoot = state.time > ship.nextShot;
+const advanceShots = (isAlive, ship, time, direction, shots, delta) => {
+  const canShoot = isAlive && time > ship.nextShot;
   const shotV = vec.scale(direction, 300);
   const shot = ship.fire && canShoot
-    ? [{ p: { ...ship.p }, v: shotV, angle: 0, ttl: ship.slow ? 0.5 : 1.5, id: Math.random().toString(36) }]
-    : [];
+    ? {
+      p: { ...ship.p },
+      v: shotV,
+      angle: 0,
+      ttl: ship.slow ? 0.5 : 1.5,
+      id: Math.random().toString(36),
+    } : [];
   
-  let shots = state.shots
+  return shots
     .concat(shot)
     .map((shot) => ({
       ...shot,
-      angle: shot.angle + (100 * delta * moveModifier),
-      p: vec.wrap(vec.add(shot.p, vec.scale(shot.v, delta * moveModifier)), 800, 600),
-      ttl: shot.ttl - (delta * moveModifier),
+      angle: shot.angle + (100 * delta),
+      p: vec.wrap(vec.add(shot.p, vec.scale(shot.v, delta)), 800, 600),
+      ttl: shot.ttl - delta,
     }))
     .filter((shot) => shot.ttl > 0);
-  
-  const collisions = detectShotCollisions(context2d, shots, state.asteroids);
-  const asteroidShipCollision = detectShipAsteroidCollision(ship, state.asteroids);
+};
+
+const handleCollisions = (context2d, isAlive, ship, shots, asteroids, dispatch) => {
+  const collisions = detectShotCollisions(context2d, shots, asteroids);
+  if (!isAlive) return collisions;
+
+  const asteroidShipCollision = detectShipAsteroidCollision(ship, asteroids);
   if (asteroidShipCollision) {
     collisions.push(asteroidShipCollision);
     dispatch(function foo(app) {
       app.update(playerKilled(app));
     });
   }
-  
-  const asteroids = state.asteroids
+
+  return collisions;
+};
+
+const advanceAsteroids = (collisions, asteroids, delta) => {
+  return asteroids
     .filter((asteroid) => asteroid.size >= 20 || !collisions.some(c => c.asteroid.id === asteroid.id))
     .reduce((collection, asteroid) => {
       const collision = collisions.find(c => c.asteroid.id === asteroid.id);
@@ -168,12 +174,26 @@ export const advance = (prevState, context2d, delta, dispatch) => {
     }, [])
     .map((asteroid) => ({
       ...asteroid,
-      p: vec.wrap(vec.add(asteroid.p, vec.scale(asteroid.v, delta * moveModifier)), 800, 600),
+      p: vec.wrap(vec.add(asteroid.p, vec.scale(asteroid.v, delta)), 800, 600),
       angle: (asteroid.angle + (asteroid.angleV * delta)) % 360,
     }));
+};
+
+
+export const advance = (prevState, context2d, delta, dispatch) => {
+  const { ship, ...state } = prevState;
+
+  const isAlive = state.playerRespawnTimeout === null;
+  const moveModifier = ship.slow ? 0.4 : 1;
+  const canShoot = isAlive && state.time > ship.nextShot;
+
+  const direction = shipDirection(ship);
+
+  let shots = advanceShots(isAlive, ship, state.time, direction, state.shots, delta * moveModifier);
+  const collisions = handleCollisions(context2d, isAlive, ship, shots, state.asteroids, dispatch);
+  const asteroids = advanceAsteroids(collisions, state.asteroids, delta * moveModifier);
   
-  shots = shots
-    .filter((shot) => !collisions.some(c => c.shot.id === shot.id));
+  shots = shots.filter((shot) => !collisions.some(c => c.shot.id === shot.id));
 
   const v = ship.thrust
     ? vec.clamp(vec.add(ship.v, vec.scale(direction, 5)), 300)
@@ -220,6 +240,7 @@ export const completeLevel = app => (state) => {
 };
 
 export const respawn = (state) => {
+  const lives = Math.max(0, state.lives - 1);
   return {
     ...state,
     ship: {
@@ -227,8 +248,8 @@ export const respawn = (state) => {
       p: { x: 400, y: 300 },
       v: vec.zero,
     },
-    lives: Math.max(0, state.lives - 1),
-    playerRespawnTimeout: null,
+    lives,
+    playerRespawnTimeout: lives > 0 ? null : state.playerRespawnTimeout,
   };
 };
 
