@@ -1,7 +1,6 @@
 {
   "name": "asteroids",
   "version": "1.0.0",
-  "main": "index.js",
   "author": "Alex Barry <alex.barry@gmail.com>",
   "license": "MIT",
   "private": true,
