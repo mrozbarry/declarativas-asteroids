@@ -33,36 +33,7 @@ const debounce = (fn, ms = 250) => {
 
 const app = build({
   init: [
-    {
-      asteroids: [],
-      ship: {
-        geometry: [
-          { x: 10, y: 0 },
-          { x: -10, y: 8 },
-          { x: -10, y: -8 },
-        ],
-
-        thrust: false,
-        left: false,
-        right: false,
-        fire: false,
-        slow: false,
-
-        p: { x: 400, y: 300 },
-        v: { x: 0, y: 0 },
-
-        angle: -90,
-        nextShot: 0,
-      },
-
-      shots: [],
-      points: 0,
-      lives: 3,
-      level: 0,
-      time: 0,
-      nextLevelTimeout: null,
-      playerRespawnTimeout: null,
-    },
+    actions.INITIAL_STATE,
     (self) => self.update(actions.afterResize),
     (self) => self.update(actions.nextLevel),
   ],
@@ -112,6 +83,13 @@ const app = build({
                 <rotate value={d2r(asteroid.angle)} />
                 <strokeStyle value="white" />
                 <Asteroid {...asteroid} />
+              </RevertableState>
+            ))}
+            {state.particles.map((particle) => (
+              <RevertableState>
+                <translate x={particle.p.x} y={particle.p.y} />
+                <fillStyle value={`rgba(${particle.rgb.r}, ${particle.rgb.g}, ${particle.rgb.b}, ${particle.ttl})`} />
+                <fillRect x={-2} y={-2} width={4} height={4} />
               </RevertableState>
             ))}
             {!state.playerRespawnTimeout && state.nextLevelTimeout && (

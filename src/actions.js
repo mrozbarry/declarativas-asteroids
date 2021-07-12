@@ -2,6 +2,38 @@ import * as vec from './lib/vec.js';
 import * as geo from './lib/geometry.js';
 import { d2r } from './lib/math.js';
 
+export const INITIAL_STATE = {
+  particles: [],
+  asteroids: [],
+  ship: {
+    geometry: [
+      { x: 10, y: 0 },
+      { x: -10, y: 8 },
+      { x: -10, y: -8 },
+    ],
+
+    thrust: false,
+    left: false,
+    right: false,
+    fire: false,
+    slow: false,
+
+    p: { x: 400, y: 300 },
+    v: { x: 0, y: 0 },
+
+    angle: -90,
+    nextShot: 0,
+  },
+
+  shots: [],
+  points: 0,
+  lives: 3,
+  level: 0,
+  time: 0,
+  nextLevelTimeout: null,
+  playerRespawnTimeout: null,
+};
+
 export const afterResize = (state, context2d) => {
   const { innerWidth, innerHeight } = window;
   context2d.canvas.width = innerWidth;
@@ -179,6 +211,57 @@ const advanceAsteroids = (collisions, asteroids, delta) => {
     }));
 };
 
+const makeParticle = (p, v, rgb, ttl) => ({
+  p,
+  v,
+  rgb,
+  ttl,
+  id: Math.random().toString(36),
+});
+
+export const advanceParticles = (isAlive, ship, collisions, delta, particles) => {
+  const shipThrustPosition = vec.add(
+    vec.add(ship.p, vec.scale(vec.unit(ship.v), -8)),
+    vec.make({
+      x: 2 - (Math.random() * 4),
+      y: 2 - (Math.random() * 4),
+    }),
+  );
+  const shipParticles = isAlive && ship.thrust
+    ? makeParticle(
+      shipThrustPosition,
+      vec.scale(vec.unit(ship.v), -1.1),
+      { r: 200 + Math.floor(Math.random() * 50), g: Math.floor(Math.random() * 100), b: Math.floor(Math.random() * 100) },
+      1
+    )
+    : [];
+
+  const collisionParticles = collisions.reduce((cp, collision) => {
+    return [
+      ...cp,
+      ...Array.from({ length: 8 }, () => makeParticle(
+        collision.asteroid.p,
+        vec.make({
+          x: Math.cos(d2r(Math.random() * 359)) * 50,
+          y: Math.sin(d2r(Math.random() * 359)) * 50,
+        }),
+        { r: 40, g: 40, b: 40 },
+        1,
+      )),
+    ];
+  }, [])
+
+  return particles
+    .concat(shipParticles)
+    .concat(collisionParticles)
+    .map((particle) => ({
+      ...particle,
+      p: vec.wrap(vec.add(particle.p, vec.scale(particle.v, delta)), 800, 600),
+      ttl: particle.ttl - delta,
+    }))
+    .filter(p => p.ttl > 0);
+};
+
 
 export const advance = (prevState, context2d, delta, dispatch) => {
   const { ship, ...state } = prevState;
@@ -198,7 +281,7 @@ export const advance = (prevState, context2d, delta, dispatch) => {
   const v = ship.thrust
     ? vec.clamp(vec.add(ship.v, vec.scale(direction, 5)), 300)
     : ship.v;
-  
+
   return {
     ...state,
     ship: {
@@ -212,6 +295,7 @@ export const advance = (prevState, context2d, delta, dispatch) => {
     },
     shots,
     asteroids,
+    particles: advanceParticles(isAlive, ship, collisions, delta * moveModifier, state.particles),
     time: state.time + (delta * moveModifier),
     points: state.points + (collisions.length * 10),
   };
