@@ -73,7 +73,7 @@ const app = build({
               <RevertableState>
                 <translate x={shot.p.x} y={shot.p.y} />
                 <rotate value={d2r(shot.angle)} />
-                <fillStyle value="white" />
+                <fillStyle value="rgb(70, 150, 70)" />
                 <fillRect x={-2} y={-2} width={4} height={4} />
               </RevertableState>
             ))}
@@ -89,7 +89,7 @@ const app = build({
               <RevertableState>
                 <translate x={particle.p.x} y={particle.p.y} />
                 <fillStyle value={`rgba(${particle.rgb.r}, ${particle.rgb.g}, ${particle.rgb.b}, ${particle.ttl})`} />
-                <fillRect x={-2} y={-2} width={4} height={4} />
+                <fillRect x={-1} y={-1} width={2} height={2} />
               </RevertableState>
             ))}
             {!state.playerRespawnTimeout && state.nextLevelTimeout && (

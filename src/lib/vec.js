@@ -1,3 +1,5 @@
+import { d2r } from './math';
+
 export const make = (newVec = {}) => ({
   x: newVec.x || 0,
   y: newVec.y || 0,
@@ -57,3 +59,8 @@ export const average = (a, b) => make({
 });
 
 export const flip = a => make({ x: a.y, y: a.x });
+
+export const angle = (degrees) => make({
+  x: Math.cos(d2r(degrees)),
+  y: Math.sin(d2r(degrees)),
+});

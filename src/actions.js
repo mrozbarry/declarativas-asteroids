@@ -35,9 +35,9 @@ export const INITIAL_STATE = {
 };
 
 export const afterResize = (state, context2d) => {
-  const { innerWidth, innerHeight } = window;
-  context2d.canvas.width = innerWidth;
-  context2d.canvas.height = innerHeight;
+  const { clientWidth, clientHeight } = document.documentElement;
+  context2d.canvas.width = clientWidth;
+  context2d.canvas.height = clientHeight;
 
   return state;
 };
@@ -221,20 +221,27 @@ const makeParticle = (p, v, rgb, ttl) => ({
 
 export const advanceParticles = (isAlive, ship, collisions, delta, particles) => {
   const shipThrustPosition = vec.add(
-    vec.add(ship.p, vec.scale(vec.unit(ship.v), -8)),
-    vec.make({
-      x: 2 - (Math.random() * 4),
-      y: 2 - (Math.random() * 4),
-    }),
+    ship.p,
+    vec.scale(vec.unit(vec.angle(ship.angle)), -12)
   );
+  const rgbs = [
+    { r: 200 + Math.floor(Math.random() * 50), g: Math.floor(Math.random() * 100), b: Math.floor(Math.random() * 100) },
+    { r: 200 + Math.floor(Math.random() * 50), g: Math.floor(Math.random() * 100), b: Math.floor(Math.random() * 100) },
+    { r: 200 + Math.floor(Math.random() * 50), g: Math.floor(Math.random() * 100), b: Math.floor(Math.random() * 100) },
+  ];
   const shipParticles = isAlive && ship.thrust
-    ? makeParticle(
-      shipThrustPosition,
-      vec.scale(vec.unit(ship.v), -1.1),
-      { r: 200 + Math.floor(Math.random() * 50), g: Math.floor(Math.random() * 100), b: Math.floor(Math.random() * 100) },
+    ? rgbs.map(rgb => makeParticle(
+      vec.add(
+        shipThrustPosition,
+        vec.make({
+          x: 3 - (Math.random() * 6),
+          y: 3 - (Math.random() * 6),
+        }),
+      ),
+      vec.scale(vec.unit(ship.v), -80),
+      rgb,
       1
-    )
-    : [];
+    )) : [];
 
   const collisionParticles = collisions.reduce((cp, collision) => {
     return [
