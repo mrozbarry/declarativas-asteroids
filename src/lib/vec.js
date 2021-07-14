@@ -22,12 +22,12 @@ export const multiply = (a, b) => make({
   y: a.y * b.y,
 });
 
-export const wrap = (a, maxX, maxY) => {
-  if (a.x > maxX) return wrap({ ...a, x: a.x - maxX });
-  if (a.x < 0) return wrap({ ...a, x: a.x + maxX });
+export const wrap = (a, resolution) => {
+  if (a.x > resolution.x) return wrap({ ...a, x: a.x - resolution.x }, resolution);
+  if (a.x < 0) return wrap({ ...a, x: a.x + resolution.x }, resolution);
 
-  if (a.y > maxY) return wrap({ ...a, y: a.y - maxY });
-  if (a.y < 0) return wrap({ ...a, y: a.y + maxY });
+  if (a.y > resolution.y) return wrap({ ...a, y: a.y - resolution.y }, resolution);
+  if (a.y < 0) return wrap({ ...a, y: a.y + resolution.y }, resolution);
 
   return a;
 };

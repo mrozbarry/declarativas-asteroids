@@ -5,26 +5,23 @@
 import { c, components } from 'declarativas';
 const { RevertableState } = components;
 
-const clipRect = (fullWidth, width, height, vWidth, vHeight) => {
-  const aspectRatio = vHeight / vWidth;
-  const w = width;
-  const h = width * aspectRatio;
-  const x = (fullWidth - w) / 2;
-  const y = (height - h) / 2;
-  return { x, y, width: w, height: h };
-};
-
-const pickClip = (width, height) => {
-  const h = height - 200;
-  for(let w = width; w > 250; w -= 10) {
-    const rect = clipRect(width, w, height, 800, 600);
-    if (rect.width <= width && rect.height <= h) return rect;
-  }
-  return clipRect(width, 250, height, 800, 600);
+const pickClip = (width, height, resolution) => {
+  const scale = Math.min(
+    width / resolution.x,
+    height / resolution.y,
+  );
+  const w = resolution.x * scale;
+  const h = resolution.y * scale;
+  return {
+    x: (width - w) / 2,
+    y: 200 + ((height - h) / 2),
+    width: w,
+    height: h,
+  };
 }
 
-export const PlayArea = ({ width, height }, children) => {
-  const rect = pickClip(width, height);
+export const PlayArea = ({ canvas, resolution }, children) => {
+  const rect = pickClip(canvas.width, canvas.height - 250, resolution);
   
   return (
     <RevertableState>
@@ -34,7 +31,7 @@ export const PlayArea = ({ width, height }, children) => {
       <rect {...rect} />
       <clip />
       <translate x={rect.x} y={rect.y} />
-      <scale x={rect.width / 800} y={rect.height / 600} />
+      <scale x={rect.width / resolution.x} y={rect.height / resolution.y} />
       {children}
     </RevertableState>
   );

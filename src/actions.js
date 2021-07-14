@@ -2,7 +2,8 @@ import * as vec from './lib/vec.js';
 import * as geo from './lib/geometry.js';
 import { d2r } from './lib/math.js';
 
-export const INITIAL_STATE = {
+export const init = (width, height) => ({
+  resolution: vec.make({ x: width, y: height }),
   particles: [],
   asteroids: [],
   ship: {
@@ -18,7 +19,7 @@ export const INITIAL_STATE = {
     fire: false,
     slow: false,
 
-    p: { x: 400, y: 300 },
+    p: { x: width / 2, y: height / 2 },
     v: { x: 0, y: 0 },
 
     angle: -90,
@@ -30,14 +31,15 @@ export const INITIAL_STATE = {
   lives: 3,
   level: 0,
   time: 0,
+  isPaused: true,
   nextLevelTimeout: null,
   playerRespawnTimeout: null,
-};
+});
 
 export const afterResize = (state, context2d) => {
-  const { clientWidth, clientHeight } = document.documentElement;
-  context2d.canvas.width = clientWidth;
-  context2d.canvas.height = clientHeight;
+  const { innerWidth, innerHeight } = window;
+  context2d.canvas.width = innerWidth;
+  context2d.canvas.height = innerHeight;
 
   return state;
 };
@@ -70,7 +72,7 @@ const shipDirection = ship => {
   return vec.make({ x, y });
 };
 
-const makeAsteroid = (size) => {
+const makeAsteroid = (resolution, size) => {
   const count = 4 + Math.floor(Math.random() * (size / 4));
   const spacing = 360 / count;
   const points = Array.from({ length: count }, (_, index) => vec.make({
@@ -81,8 +83,8 @@ const makeAsteroid = (size) => {
   return {
     geometry: points,
     p: vec.make({
-      x: Math.random() * 800,
-      y: Math.random() * 600,
+      x: Math.random() * resolution.x,
+      y: Math.random() * resolution.y,
     }),
     v: vec.make({
       x: 150 - (Math.random() * 300),
@@ -95,11 +97,11 @@ const makeAsteroid = (size) => {
   }
 };
 
-const splitAsteroid = (collision, asteroid) => {
+const splitAsteroid = (resolution, collision, asteroid) => {
 
   return [
-    makeAsteroid(asteroid.size / 2),
-    makeAsteroid(asteroid.size / 2),
+    makeAsteroid(resolution, asteroid.size / 2),
+    makeAsteroid(resolution, asteroid.size / 2),
   ]
     .map((a, i) => ({
       ...a,
@@ -156,7 +158,7 @@ const detectShipAsteroidCollision = (ship, asteroids) => {
   return null;
 };
 
-const advanceShots = (isAlive, ship, time, direction, shots, delta) => {
+const advanceShots = (isAlive, resolution, ship, time, direction, shots, delta) => {
   const canShoot = isAlive && time > ship.nextShot;
   const shotV = vec.scale(direction, 300);
   const shot = ship.fire && canShoot
@@ -173,7 +175,7 @@ const advanceShots = (isAlive, ship, time, direction, shots, delta) => {
     .map((shot) => ({
       ...shot,
       angle: shot.angle + (100 * delta),
-      p: vec.wrap(vec.add(shot.p, vec.scale(shot.v, delta)), 800, 600),
+      p: vec.wrap(vec.add(shot.p, vec.scale(shot.v, delta)), resolution),
       ttl: shot.ttl - delta,
     }))
     .filter((shot) => shot.ttl > 0);
@@ -194,7 +196,7 @@ const handleCollisions = (context2d, isAlive, ship, shots, asteroids, dispatch) 
   return collisions;
 };
 
-const advanceAsteroids = (collisions, asteroids, delta) => {
+const advanceAsteroids = (resolution, collisions, asteroids, delta) => {
   return asteroids
     .filter((asteroid) => asteroid.size >= 20 || !collisions.some(c => c.asteroid.id === asteroid.id))
     .reduce((collection, asteroid) => {
@@ -202,11 +204,11 @@ const advanceAsteroids = (collisions, asteroids, delta) => {
 
       if (!collision) return collection.concat(asteroid);
 
-      return collection.concat(splitAsteroid(collision, asteroid));
+      return collection.concat(splitAsteroid(resolution, collision, asteroid));
     }, [])
     .map((asteroid) => ({
       ...asteroid,
-      p: vec.wrap(vec.add(asteroid.p, vec.scale(asteroid.v, delta)), 800, 600),
+      p: vec.wrap(vec.add(asteroid.p, vec.scale(asteroid.v, delta)), resolution),
       angle: (asteroid.angle + (asteroid.angleV * delta)) % 360,
     }));
 };
@@ -219,7 +221,7 @@ const makeParticle = (p, v, rgb, ttl) => ({
   id: Math.random().toString(36),
 });
 
-export const advanceParticles = (isAlive, ship, collisions, delta, particles) => {
+export const advanceParticles = (isAlive, resolution, ship, collisions, delta, particles) => {
   const shipThrustPosition = vec.add(
     ship.p,
     vec.scale(vec.unit(vec.angle(ship.angle)), -12)
@@ -263,7 +265,7 @@ export const advanceParticles = (isAlive, ship, collisions, delta, particles) =>
     .concat(collisionParticles)
     .map((particle) => ({
       ...particle,
-      p: vec.wrap(vec.add(particle.p, vec.scale(particle.v, delta)), 800, 600),
+      p: vec.wrap(vec.add(particle.p, vec.scale(particle.v, delta)), resolution),
       ttl: particle.ttl - delta,
     }))
     .filter(p => p.ttl > 0);
@@ -271,6 +273,8 @@ export const advanceParticles = (isAlive, ship, collisions, delta, particles) =>
 
 
 export const advance = (prevState, context2d, delta, dispatch) => {
+  if (prevState.isPaused) return prevState;
+
   const { ship, ...state } = prevState;
 
   const isAlive = state.playerRespawnTimeout === null;
@@ -279,11 +283,11 @@ export const advance = (prevState, context2d, delta, dispatch) => {
 
   const direction = shipDirection(ship);
 
-  let shots = advanceShots(isAlive, ship, state.time, direction, state.shots, delta * moveModifier);
+  const shots = advanceShots(isAlive, state.resolution, ship, state.time, direction, state.shots, delta * moveModifier);
   const collisions = handleCollisions(context2d, isAlive, ship, shots, state.asteroids, dispatch);
-  const asteroids = advanceAsteroids(collisions, state.asteroids, delta * moveModifier);
+  const asteroids = advanceAsteroids(state.resolution, collisions, state.asteroids, delta * moveModifier);
   
-  shots = shots.filter((shot) => !collisions.some(c => c.shot.id === shot.id));
+  // shots = shots.filter((shot) => !collisions.some(c => c.shot.id === shot.id));
 
   const v = ship.thrust
     ? vec.clamp(vec.add(ship.v, vec.scale(direction, 5)), 300)
@@ -296,13 +300,13 @@ export const advance = (prevState, context2d, delta, dispatch) => {
       nextShot: ship.fire && canShoot
         ? state.time + (ship.slow ? 0.01 : 0.2)
         : ship.nextShot,
-      p: vec.wrap(vec.add(ship.p, vec.scale(v, delta * moveModifier)), 800, 600),
+      p: vec.wrap(vec.add(ship.p, vec.scale(v, delta * moveModifier)), state.resolution),
       v,
       angle: ship.angle + (keysToTurn(ship) * 150 * delta * moveModifier),
     },
     shots,
     asteroids,
-    particles: advanceParticles(isAlive, ship, collisions, delta * moveModifier, state.particles),
+    particles: advanceParticles(isAlive, state.resolution, ship, collisions, delta * moveModifier, state.particles),
     time: state.time + (delta * moveModifier),
     points: state.points + (collisions.length * 10),
   };
@@ -312,7 +316,7 @@ export const nextLevel = (state) => {
   const level = state.level + 1;
   return {
     ...state,
-    asteroids: Array.from({ length: level }, () => makeAsteroid(40)),
+    asteroids: Array.from({ length: level }, () => makeAsteroid(state.resolution, 40)),
     shots: [],
     level,
     nextLevelTimeout: null,
@@ -331,7 +335,6 @@ export const completeLevel = app => (state) => {
 };
 
 export const respawn = (state) => {
-  const lives = Math.max(0, state.lives - 1);
   return {
     ...state,
     ship: {
@@ -339,15 +342,21 @@ export const respawn = (state) => {
       p: { x: 400, y: 300 },
       v: vec.zero,
     },
-    lives,
-    playerRespawnTimeout: lives > 0 ? null : state.playerRespawnTimeout,
+    playerRespawnTimeout: state.lives > 0 ? null : state.playerRespawnTimeout,
   };
 };
 
 export const playerKilled = (app) => (state) => {
+  const lives = Math.max(0, state.lives - 1);
   const playerRespawnTimeout = setTimeout(
     () => app.update(respawn),
     3000,
   );
-  return { ...state, playerRespawnTimeout };
+  return {
+    ...state,
+    playerRespawnTimeout,
+    lives,
+  };
 };
+
+export const togglePause = state => ({ ...state, isPaused: !state.isPaused });

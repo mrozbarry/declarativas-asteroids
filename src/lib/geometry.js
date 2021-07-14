@@ -25,6 +25,14 @@ export const denormalize = memoize((object) => {
   });
 });
 
+export const allInsideBounds = (geometry, res) => {
+  return geometry.every(p => {
+    const inXBounds = p.x >= 0 && p.x <= res.x;
+    const inYBounds = p.y >= 0 && p.y <= res.y;
+    return inXBounds && inYBounds;
+  });
+}
+
 export const geometryToLineSegments = (geometry) => {
   return geometry.map((p, i) => [
     p,
