@@ -38,7 +38,7 @@ const app = build({
   init: [
     actions.init(800, 600),
     (self) => self.update(actions.afterResize),
-    (self) => self.update(actions.nextLevel),
+    (self) => self.update(actions.completeLevel(self)),
   ],
   
   onBeforeTick: (self) => {
@@ -98,13 +98,13 @@ const app = build({
                 <translate x={asteroid.p.x} y={asteroid.p.y} />
                 <rotate value={d2r(asteroid.angle)} />
                 <strokeStyle value="white" />
-                <Asteroid {...asteroid} />
+                <Asteroid {...asteroid} canCollide={state.nextLevelTimeout === null} />
               </RevertableState>
             ))}
             {state.particles.map((particle) => (
               <RevertableState>
                 <translate x={particle.p.x} y={particle.p.y} />
-                <fillStyle value={`rgba(${particle.rgb.r}, ${particle.rgb.g}, ${particle.rgb.b}, ${particle.ttl})`} />
+                <fillStyle value={`rgba(${particle.rgb.r}, ${particle.rgb.g}, ${particle.rgb.b}, ${particle.ttl / particle.maxTtl})`} />
                 <fillRect x={-1} y={-1} width={2} height={2} />
               </RevertableState>
             ))}

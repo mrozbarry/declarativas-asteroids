@@ -7,9 +7,9 @@ import * as geo from '../lib/geometry';
 
 const { RevertableState } = components;
 
-export const Asteroid = ({ geometry }) => (
+export const Asteroid = ({ geometry, canCollide }) => (
   <RevertableState>
-    <strokeStyle value="#ddd" />
+    <strokeStyle value={canCollide ? '#ddd' : '#333'} />
     <stroke path={geo.toPath(geometry)} />
   </RevertableState>
 );
