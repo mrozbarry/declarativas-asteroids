@@ -19,23 +19,24 @@ export const build = ({ init, view, onBeforeTick, context2d }) => {
       : 0;
     
     lastRender = timestamp;
+
+    const updateBuffer = [];
+    const dispatch = fn => updateBuffer.push(fn);
     
-    beforeTick(self);
+    beforeTick(state, delta, context2d, dispatch);
     
     while (pendingUpdates.length) {
       const update = pendingUpdates.pop();
       const [fn, ...effects] = [].concat(update);
-      const extraEffects = [];
-      const dispatchFromAction = (fn) => {
-        extraEffects.push(fn);
-      };
-      state = fn(state, context2d, delta, dispatchFromAction);
+
+      state = fn(state, self.update);
+
       effects
-        .concat(extraEffects)
         .filter(Boolean)
-        .forEach(fx => fx(self));
+        .forEach(fx => self.update(fx));
     }
     render(context2d, view(state, context2d));
+    updateBuffer.forEach(fn => pendingUpdates.push(fn));
     rafHandle = requestAnimationFrame(animationFrame);
   };
     
@@ -55,7 +56,7 @@ export const build = ({ init, view, onBeforeTick, context2d }) => {
   };
   
   self.resume();
-  initEffects.filter(Boolean).forEach(fx => fx(self));
+  initEffects.filter(Boolean).forEach(fx => self.update(fx));
 
   return self;
 };

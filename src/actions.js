@@ -2,31 +2,56 @@ import * as vec from './lib/vec.js';
 import * as geo from './lib/geometry.js';
 import { d2r } from './lib/math.js';
 
+const initialShip = {
+  geometry: [
+    { x: 10, y: 0 },
+    { x: -10, y: 8 },
+    { x: -10, y: -8 },
+  ],
+
+  thrust: false,
+  left: false,
+  right: false,
+  fire: false,
+  slow: false,
+
+  p: { x: 400, y: 300 },
+  v: { x: 0, y: 0 },
+
+  angle: -90,
+  nextShot: 0,
+};
+
 export const init = (width, height) => ({
   resolution: vec.make({ x: width, y: height }),
-  particles: [],
-  asteroids: [],
-  ship: {
-    geometry: [
-      { x: 10, y: 0 },
-      { x: -10, y: 8 },
-      { x: -10, y: -8 },
+
+  view: 'loading',
+  loading: [
+    { id: 'fonts', done: false },
+  ],
+
+  menu: {
+    items: [
+      {
+        label: 'resume',
+        onselect: (state, dispatch) => {
+          if (state.isPaused) dispatch(togglePause);
+          return state;
+        },
+        isDisabled: state => state.view !== 'game',
+      },
+      { label: 'new game', onselect: startGame },
+      { label: 'controls', onselect: state => state },
+      { label: 'high scores', onselect: state => state },
     ],
-
-    thrust: false,
-    left: false,
-    right: false,
-    fire: false,
-    slow: false,
-
-    p: { x: width / 2, y: height / 2 },
-    v: { x: 0, y: 0 },
-
-    angle: -90,
-    nextShot: 0,
+    index: 0,
   },
 
+  ship: { ...initialShip },
+  particles: [],
+  asteroids: [],
   shots: [],
+
   points: 0,
   lives: 3,
   level: 0,
@@ -36,7 +61,54 @@ export const init = (width, height) => ({
   playerRespawnTimeout: null,
 });
 
-export const afterResize = (state, context2d) => {
+export const setView = view => state => ({ ...state, view });
+
+export const resetGame = state => ({
+  ...state,
+  ship: { ...initialShip },
+  particles: [],
+  asteroids: [],
+  shots: [],
+
+  points: 0,
+  lives: 3,
+  level: 0,
+  time: 0,
+  isPaused: false,
+  nextLevelTimeout: null,
+  playerRespawnTimeout: null,
+});
+
+export const startGame = (state, dispatch) => {
+  dispatch(resetGame);
+  dispatch(completeLevel);
+  dispatch(setView('game'));
+
+  return state;
+};
+
+export const loadedItem = id => (state, dispatch) => {
+  const loading = state.loading.map(l => l.id === id ? { ...l, done: true } : l);
+  const remaining = loading.filter(l => !l.done).length;
+
+  if (remaining === 0) {
+    dispatch(setView('menu'));
+  }
+
+  return { ...state, loading };
+};
+
+export const waitForFont = (family) => (state, dispatch) => {
+  document.fonts
+    .load(`16px ${family}`)
+    .then(() => {
+      dispatch(loadedItem('fonts'))
+    });
+
+  return state;
+};
+
+export const afterResize = context2d => (state) => {
   const { innerWidth, innerHeight } = window;
   context2d.canvas.width = innerWidth;
   context2d.canvas.height = innerHeight;
@@ -188,9 +260,7 @@ const handleCollisions = (context2d, isAlive, ship, shots, asteroids, dispatch) 
   const asteroidShipCollision = detectShipAsteroidCollision(ship, asteroids);
   if (asteroidShipCollision) {
     collisions.push(asteroidShipCollision);
-    dispatch(function foo(app) {
-      app.update(playerKilled(app));
-    });
+    dispatch(playerKilled);
   }
 
   return collisions;
@@ -222,7 +292,7 @@ const makeParticle = (p, v, rgb, ttl) => ({
   id: Math.random().toString(36),
 });
 
-export const advanceParticles = (isAlive, resolution, ship, asteroids, collisions, delta, particles) => {
+const advanceParticles = (isAlive, resolution, ship, asteroids, collisions, delta, particles) => {
   const shipThrustPosition = vec.add(
     ship.p,
     vec.scale(vec.unit(vec.angle(ship.angle)), -12)
@@ -298,8 +368,9 @@ export const advanceParticles = (isAlive, resolution, ship, asteroids, collision
 };
 
 
-export const advance = (prevState, context2d, delta, dispatch) => {
+export const advance = (delta, context2d) => (prevState, dispatch) => {
   if (prevState.isPaused) return prevState;
+  if (prevState.view !== 'game') return prevState;
 
   const { ship, ...state } = prevState;
 
@@ -345,11 +416,11 @@ export const nextLevel = (state) => {
   }
 };
 
-export const completeLevel = app => (state) => {
+export const completeLevel = (state, dispatch) => {
   if (state.nextLevelTimeout || state.asteroids.length > 0) return state;
   
   const nextLevelTimeout = setTimeout(
-      () => app.update(nextLevel),
+      () => dispatch(nextLevel),
       5000,
     );
   
@@ -373,10 +444,10 @@ export const respawn = (state) => {
   };
 };
 
-export const playerKilled = (app) => (state) => {
+export const playerKilled = (state, dispatch) => {
   const lives = Math.max(0, state.lives - 1);
   const playerRespawnTimeout = setTimeout(
-    () => app.update(respawn),
+    () => dispatch(respawn),
     3000,
   );
   return {
@@ -386,4 +457,33 @@ export const playerKilled = (app) => (state) => {
   };
 };
 
-export const togglePause = state => ({ ...state, isPaused: !state.isPaused });
+export const togglePause = state => ({
+  ...state,
+  isPaused: !state.isPaused,
+  menu: state.isPaused
+    ? state.menu
+    : { ...state.menu, index: 0 },
+});
+
+export const changeMenuItem = diff => state => ({
+  ...state,
+  menu: {
+    ...state.menu,
+    index: diff > 0
+      ? (state.menu.index + 1) % state.menu.items.length
+      : (state.menu.index > 0 ? state.menu.index - 1 : state.menu.items.length - 1)
+  },
+});
+
+export const selectMenuItem = (state, dispatch) => {
+  const isInMenu = state.view === 'menu';
+  const isInPause = state.view === 'game' && state.isPaused;
+  if (!isInMenu && !isInPause) return state;
+
+  const item = state.menu.items[state.menu.index];
+  if (!item) return state;
+
+  dispatch(item.onselect);
+
+  return state;
+};
